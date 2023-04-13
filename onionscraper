@@ -18,6 +18,8 @@ fi
 skip_in="unattendskip"
 skip_out="unattend"
 import="false"
+clean="false"
+dryrun="false"
 
 #---------------
 lastrun=~/.skyscraper/onionos_scrape.lastrun 
@@ -29,14 +31,84 @@ function usage() {
     echo "options:"
     echo "  -a --all:    check all platforms instead of just the ones with new ROMs."
     echo "  -c --clean:  remove images for deleted games."
+    echo "  -d --dry-run with clean, find but don't delete images."
     echo "  -i --import: import manually added assets."
     echo "  -s --skip:   skip existing output files."
     echo "  -h --help:   this help."
     exit 0
 }
 
+function scrape_platform() {
+    echo "(Skyscraper platform: $platform)"
+
+    Skyscraper -p ${platform} -s ${module} \
+        -i $rompath/$system \
+        --flags $skip_in
+    Skyscraper -p ${platform} \
+        -i $rompath/$system -o $rompath/$system/Imgs \
+        --flags $skip_out
+    mv $rompath/$system/Imgs/screenshots/* $rompath/$system/Imgs/
+    rmdir $rompath/$system/Imgs/covers \
+          $rompath/$system/Imgs/marquees \
+          $rompath/$system/Imgs/screenshots \
+          $rompath/$system/Imgs/textures \
+          $rompath/$system/Imgs/wheels
+
+    sed -i 's/Imgs\/screenshots/Imgs/g' $rompath/$system/gamelist.xml
+    if ! xmlstarlet_loc="$(type -p "xmlstarlet")" || [[ -z $xmlstarlet_loc ]]; then
+        mv $rompath/$system/gamelist.xml $rompath/$system/miyoogamelist.xml
+    else
+        xmlstarlet  edit -d "//desc" -d "//rating" -d "//genre" -d "//players" -d "//releasedate" -d "//developer" -d "//publisher" -d "//hash" -d "//thumbnail" -d "//genreid" -d "//marquee" -d "//texture" -d "//video" --subnode "gameList/game[not(image)]" -t elem -n image -v "no-img.png" $rompath/$system/gamelist.xml > $rompath/$system/miyoogamelist.xml
+        rm $rompath/$system/gamelist.xml
+    fi
+}
+
+function find_match {
+    platform=$1
+    asset=$2
+    game=${asset#$pdir$adir/}
+    game=${game%.*}
+    game="$(printf '%q' "${game}")" # escapes special characters
+    res=$(find "$rompath/$platform" -name "${game}.*" |wc -l)
+    if [[ "$res" == "0" ]]; then
+        echo "rm \"$asset\"" >> $orphansfile
+    fi
+}
+
 function clean_assets() {
-    echo Not implemented
+
+    for pdir in $rompath/*/
+    do
+
+        system=$(basename $pdir)
+        if [[ "$systems" != "" ]]; then
+            if [[ ! " $systems " =~ " $system " ]]; then       
+                continue
+            fi
+        fi
+        echo Cleaning $system
+        for asset in ${pdir}Imgs/*
+        do
+            # Special case: directory is empty
+            if [[ "$asset" != "${pdir}Imgs/*" ]]; then
+                game=${asset#${pdir}Imgs/}
+                game=${game%.*}
+                game="$(printf '%q' "${game}")" # escapes special characters
+                #res=$(find "$rompath/$system" -name "${game}.*" |wc -l)
+                res=$(find "$rompath/$system" -maxdepth 1 -name "${game}.*" |wc -l)
+                if [[ "$res" == "0" ]]; then
+                    if [[ "$dryrun" == "true" ]]; then
+                        echo "ORPHANED ARTWORK: $asset"
+                    else
+                        echo "DELETING $asset"
+                        rm "$asset"
+                    fi
+                fi
+
+            fi
+
+        done
+    done
     exit 0
 }
 
@@ -56,7 +128,11 @@ while [[ "$1" = "-"* ]]; do
         skip_in="unattend"
         shift
     elif [[ "$1" == "-c" || "$1" == "--clean" ]]; then
-        clean_assets
+        clean="true"
+        shift
+    elif [[ "$1" == "-d" || "$1" == "--dry-run" ]]; then
+        dryrun="true"
+        shift
     else
         echo "Unsupported option $1."
         shift
@@ -66,17 +142,22 @@ done
 # remaining parameters are systems to scrape
 systems="$@"
 
-if [ ! -f ${lastrun} ]; then
-    echo "First run: this could take a long time..."
-    # create a lastrun file far in the past to scan everything
-    touch -d "1/1/1970" ${lastrun}
-fi
 #---------------
 
 inputline=$(grep -m 1 inputFolder ~/.skyscraper/config.ini)
 rompath=${inputline##*=}
 rompath="${rompath%\"}"
 rompath="${rompath#\"}"
+
+if [[ "$clean" == "true" ]]; then
+    clean_assets
+fi
+
+if [ ! -f ${lastrun} ]; then
+    echo "First run: this could take a long time..."
+    # create a lastrun file far in the past to scan everything
+    touch -d "1/1/1970" ${lastrun}
+fi
 
 if [[ "$systems" == "" ]]; then
     echo Looking for new ROMs in $rompath
@@ -85,6 +166,7 @@ if [[ "$systems" == "" ]]; then
 
     if [[ "$systems" == "" ]];then
         echo "No new game found."
+        exit 0
     fi
 fi
 
@@ -102,71 +184,52 @@ do
         echo -n "Processing $system ... "
 
         # convert the Miyoo system into a Skyscraper platform
-        declare -A systems
-        systems[AMIGA]=amiga
-        systems[CPC]=amstradcpc
-        systems[ARCADE]=mame-libretro
-        systems[ATARI]=atari2600
-        systems[FIFTYTWOHUNDRED]=atari5200
-        systems[SEVENTYEIGHTHUNDRED]=atari7800
-        systems[LYNX]=atarilynx
-        systems[WS]=wonderswan
-        systems[COLECO]=coleco
-        systems[VECTREX]=vextrex
-        systems[INTELLIVISION]=intellivision
-        systems[MSX]=msx
-        systems[PCECD]=pcenginecd
-        systems[PCE]=pcengine
-        systems[FC]=nes
-        systems[GB]=gb
-        systems[GBC]=gbc
-        systems[GBA]=gba
-        systems[POKE]=pokemini
-        systems[SFC]=sness
-        systems[VB]=virtualboy
-        systems[PICO]=pico8
-        systems[PORTS]=ports
-        systems[SCUMMVM]=scummvm
-        systems[THIRTYTWOX]=sega32x
-        systems[SEGACD]=segacd
-        systems[GG]=gamegear
-        systems[MD]=megadrive
-        systems[MS]=mastersystem
-        systems[SEGASGONE]=sg-1000
-        systems[ZXS]=zxspectrum
-        systems[NEOGEO]=neogeo
-        systems[NEOCD]=neogeocd
-        systems[NGP]=ngp
-        systems[PS]=psx
-        systems[VIDEOPAC]=videopac
+        declare -A systemlist
+        systemlist[AMIGA]=amiga
+        systemlist[CPC]=amstradcpc
+        systemlist[ARCADE]=mame-libretro
+        systemlist[ATARI]=atari2600
+        systemlist[FIFTYTWOHUNDRED]=atari5200
+        systemlist[SEVENTYEIGHTHUNDRED]=atari7800
+        systemlist[LYNX]=atarilynx
+        systemlist[WS]="wonderswan wonderswancolor"
+        systemlist[COLECO]=coleco
+        systemlist[VECTREX]=vextrex
+        systemlist[INTELLIVISION]=intellivision
+        systemlist[MSX]=msx
+        systemlist[PCECD]=pcenginecd
+        systemlist[PCE]=pcengine
+        systemlist[FC]=nes
+        systemlist[GB]="gb gbc"
+        systemlist[GBC]=gbc
+        systemlist[GBA]=gba
+        systemlist[POKE]=pokemini
+        systemlist[SFC]=snes
+        systemlist[VB]=virtualboy
+        systemlist[PICO]=pico8
+        systemlist[PORTS]=ports
+        systemlist[SCUMMVM]=scummvm
+        systemlist[THIRTYTWOX]=sega32x
+        systemlist[SEGACD]=segacd
+        systemlist[GG]=gamegear
+        systemlist[MD]=megadrive
+        systemlist[MS]=mastersystem
+        systemlist[SEGASGONE]=sg-1000
+        systemlist[ZXS]=zxspectrum
+        systemlist[NEOGEO]=neogeo
+        systemlist[NEOCD]=neogeocd
+        systemlist[NGP]="ngp ngpc"
+        systemlist[PS]=psx
+        systemlist[VIDEOPAC]=videopac
 
-        platform=${systems[$system]}
-        if [[ "$platform" == "" ]]; then
+        platforms=${systemlist[$system]}
+        if [[ "$platforms" == "" ]]; then
             echo "Unsupported system"
         else
-            echo "(Skyscraper platform: $platform)"
-
-            Skyscraper -p ${platform} -s ${module} \
-                -i $rompath/$system \
-                --flags $skip_in
-            Skyscraper -p ${platform} \
-                -i $rompath/$system -o $rompath/$system/Imgs \
-                --flags $skip_out
-            mv $rompath/$system/Imgs/screenshots/* $rompath/$system/Imgs/
-            rmdir $rompath/$system/Imgs/covers \
-                  $rompath/$system/Imgs/marquees \
-                  $rompath/$system/Imgs/screenshots \
-                  $rompath/$system/Imgs/textures \
-                  $rompath/$system/Imgs/wheels
-
-            sed -i 's/Imgs\/screenshots/Imgs/g' $rompath/$system/gamelist.xml
-            if ! xmlstarlet_loc="$(type -p "xmlstarlet")" || [[ -z $xmlstarlet_loc ]]; then
-                mv $rompath/$system/gamelist.xml $rompath/$system/miyoogamelist.xml
-            else
-                xmlstarlet  edit -d "//desc" -d "//rating" -d "//genre" -d "//players" -d "//releasedate" -d "//developer" -d "//publisher" -d "//hash" -d "//thumbnail" -d "//genreid" -d "//marquee" -d "//texture" -d "//video" --subnode "gameList/game[not(image)]" -t elem -n image -v "no-img.png" $rompath/$system/gamelist.xml > $rompath/$system/miyoogamelist.xml
-                rm $rompath/$system/gamelist.xml
-            fi
-
+            for platform in $platforms
+            do
+                scrape_platform
+            done
         fi
     fi
     skip=false
