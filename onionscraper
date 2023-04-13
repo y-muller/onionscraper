@@ -1,0 +1,182 @@
+#!/bin/bash
+
+# Look for new ROMs since the last run.
+
+##### Config #####
+# Don't edit the configuration in this file as it would be overwritten on updates.
+# Create the file .config/onionos_helpers.conf and override the variables.
+
+module=screenscraper
+#module=thegamesdb
+exclude=("android")
+
+##################
+if [[ -f ~/.config/onionos_helpers.conf ]]; then
+    source ~/.config/onionos_helpers.conf
+fi
+
+skip_in="unattendskip"
+skip_out="unattend"
+import="false"
+
+#---------------
+lastrun=~/.skyscraper/onionos_scrape.lastrun 
+
+function usage() {
+    echo "Usage: $0 [OPTIONS] [PLATFORMS]"
+    echo "Find all the new ROMs since the last run of the script and"
+    echo "call Skyscraper for the required platforms."
+    echo "options:"
+    echo "  -a --all:    check all platforms instead of just the ones with new ROMs."
+    echo "  -c --clean:  remove images for deleted games."
+    echo "  -i --import: import manually added assets."
+    echo "  -s --skip:   skip existing output files."
+    echo "  -h --help:   this help."
+    exit 0
+}
+
+function clean_assets() {
+    echo Not implemented
+    exit 0
+}
+
+while [[ "$1" = "-"* ]]; do
+    if [[ "$1" = "--help" || "$1" = "-h"  ]]; then
+        usage
+    elif [[ "$1" == "--all" || "$1" == "-a" ]]; then
+        echo "Scanning all platforms."
+        rm -f $lastrun
+        shift
+    elif [[ "$1" == "-s" || "$1" == "--skip" ]]; then
+        skip_out="unattendskip"
+        shift
+    elif [[ "$1" == "-i" || "$1" == "--import" ]]; then
+        import="true"
+        module="import"
+        skip_in="unattend"
+        shift
+    elif [[ "$1" == "-c" || "$1" == "--clean" ]]; then
+        clean_assets
+    else
+        echo "Unsupported option $1."
+        shift
+    fi
+done
+
+# remaining parameters are systems to scrape
+systems="$@"
+
+if [ ! -f ${lastrun} ]; then
+    echo "First run: this could take a long time..."
+    # create a lastrun file far in the past to scan everything
+    touch -d "1/1/1970" ${lastrun}
+fi
+#---------------
+
+inputline=$(grep -m 1 inputFolder ~/.skyscraper/config.ini)
+rompath=${inputline##*=}
+rompath="${rompath%\"}"
+rompath="${rompath#\"}"
+
+if [[ "$systems" == "" ]]; then
+    echo Looking for new ROMs in $rompath
+
+    systems=$(find ${rompath} -mindepth 2 -maxdepth 2 -type f -cnewer ${lastrun} -exec sh -c 'basename $(dirname "$0")' {} \; | sort | uniq)
+
+    if [[ "$systems" == "" ]];then
+        echo "No new game found."
+    fi
+fi
+
+skip=false
+for system in $systems
+do
+    for i in "${exclude[@]}"
+    do
+        if [ "$i" == "$system" ] ; then
+            echo "Skipping $system"
+            skip=true
+        fi
+    done
+    if ! $skip ; then
+        echo -n "Processing $system ... "
+
+        # convert the Miyoo system into a Skyscraper platform
+        declare -A systems
+        systems[AMIGA]=amiga
+        systems[CPC]=amstradcpc
+        systems[ARCADE]=mame-libretro
+        systems[ATARI]=atari2600
+        systems[FIFTYTWOHUNDRED]=atari5200
+        systems[SEVENTYEIGHTHUNDRED]=atari7800
+        systems[LYNX]=atarilynx
+        systems[WS]=wonderswan
+        systems[COLECO]=coleco
+        systems[VECTREX]=vextrex
+        systems[INTELLIVISION]=intellivision
+        systems[MSX]=msx
+        systems[PCECD]=pcenginecd
+        systems[PCE]=pcengine
+        systems[FC]=nes
+        systems[GB]=gb
+        systems[GBC]=gbc
+        systems[GBA]=gba
+        systems[POKE]=pokemini
+        systems[SFC]=sness
+        systems[VB]=virtualboy
+        systems[PICO]=pico8
+        systems[PORTS]=ports
+        systems[SCUMMVM]=scummvm
+        systems[THIRTYTWOX]=sega32x
+        systems[SEGACD]=segacd
+        systems[GG]=gamegear
+        systems[MD]=megadrive
+        systems[MS]=mastersystem
+        systems[SEGASGONE]=sg-1000
+        systems[ZXS]=zxspectrum
+        systems[NEOGEO]=neogeo
+        systems[NEOCD]=neogeocd
+        systems[NGP]=ngp
+        systems[PS]=psx
+        systems[VIDEOPAC]=videopac
+
+        platform=${systems[$system]}
+        if [[ "$platform" == "" ]]; then
+            echo "Unsupported system"
+        else
+            echo "(Skyscraper platform: $platform)"
+
+            Skyscraper -p ${platform} -s ${module} \
+                -i $rompath/$system \
+                --flags $skip_in
+            Skyscraper -p ${platform} \
+                -i $rompath/$system -o $rompath/$system/Imgs \
+                --flags $skip_out
+            mv $rompath/$system/Imgs/screenshots/* $rompath/$system/Imgs/
+            rmdir $rompath/$system/Imgs/covers \
+                  $rompath/$system/Imgs/marquees \
+                  $rompath/$system/Imgs/screenshots \
+                  $rompath/$system/Imgs/textures \
+                  $rompath/$system/Imgs/wheels
+
+            sed -i 's/Imgs\/screenshots/Imgs/g' $rompath/$system/gamelist.xml
+            if ! xmlstarlet_loc="$(type -p "xmlstarlet")" || [[ -z $xmlstarlet_loc ]]; then
+                mv $rompath/$system/gamelist.xml $rompath/$system/miyoogamelist.xml
+            else
+                xmlstarlet  edit -d "//desc" -d "//rating" -d "//genre" -d "//players" -d "//releasedate" -d "//developer" -d "//publisher" -d "//hash" -d "//thumbnail" -d "//genreid" -d "//marquee" -d "//texture" -d "//video" --subnode "gameList/game[not(image)]" -t elem -n image -v "no-img.png" $rompath/$system/gamelist.xml > $rompath/$system/miyoogamelist.xml
+                rm $rompath/$system/gamelist.xml
+            fi
+
+        fi
+    fi
+    skip=false
+done
+
+# Update lastrun
+touch ${lastrun}
+
+# If launched from a Termux shortcut, closes automatically
+# wait for a key press
+#read -n 1 -r -s -p "Press any key to continue..." key
+#echo ""
+
