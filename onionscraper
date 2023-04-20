@@ -4,19 +4,23 @@
 
 ##### Config #####
 # Don't edit the configuration in this file as it would be overwritten on updates.
-# Create the file .config/onionscraper.conf and override the variables.
+# Create the file .config/onionscraper.conf or .onionscraper.conf and override the variables.
 
 module=screenscraper
 gamelist="true"
-exclude=("android")
+exclude=("PORTS")
+
+# Skyscraper config file (no quotes)
+skyscraperini=~/.skyscraper/config.ini
 
 ##################
 if [[ -f ~/.config/onionscraper.conf ]]; then
     source ~/.config/onionscraper.conf
+elif [[ -f ~/.onionscraper.conf ]]; then
+    source ~/.onionscraper.conf
 fi
 
 #---------------
-lastrun=~/.skyscraper/onionos_scrape.lastrun 
 
 function usage() {
     echo "Usage: $(basename $0) [OPTIONS] [SYSTEMS]"
@@ -24,10 +28,11 @@ function usage() {
     echo "options:"
     echo "  -a --all:    check all platforms instead of just the ones with new ROMs."
     echo "  -c --clean:  remove images for deleted games."
-    echo "  -d --dry-run with clean, find but don't delete images."
+    echo "  -p --pretend with clean, find but don't delete images."
     echo "  -v --vacuum  vacuum the Skyscraper cache (danger?)."
     echo "  -i --import: import manually added assets."
     echo "  -s --skip:   skip existing output files."
+    echo "  -d --device  user the Skyscraper config for the given device."
     echo "  -h --help:   this help."
     echo "systems:"
     echo "  All parameters after the last option are treated as a list of systems"
@@ -76,13 +81,31 @@ systemlist[NGP]="ngp ngpc"
 systemlist[PS]=psx
 systemlist[VIDEOPAC]=videopac
 
+function check_rompath() {
+    if [[ -d "$rompath" ]]; then
+	    if [[ ! "$(ls -A $rompath)" ]]; then
+            echo "The path to the ROMs is empty. Check your configuration."
+            exit 1
+	    fi
+    else
+	    echo "The path to the ROMs does not exist. Check your configuration."
+        echo "Not found: $rompath"
+        exit 1
+    fi
+}
+
 function scrape_platform() {
     echo "(Skyscraper platform: $platform)"
+    if [[ ! -d "$rompath/$system" ]]; then
+        echo "Folder for system $system doesn't exist."
+        echo "Check your configuration, ROM paths and mount points."
+        return
+    fi
 
-    Skyscraper -p ${platform} -s ${module} \
+    Skyscraper ${inifile} -p ${platform} -s ${module} \
         -i $rompath/$system \
         --flags $skip_in
-    Skyscraper -p ${platform} \
+    Skyscraper ${inifile} -p ${platform} \
         -i $rompath/$system -o $rompath/$system/Imgs \
         --flags $skip_out
     mv $rompath/$system/Imgs/screenshots/* $rompath/$system/Imgs/
@@ -98,7 +121,7 @@ function scrape_platform() {
         if ! xmlstarlet_loc="$(type -p "xmlstarlet")" || [[ -z $xmlstarlet_loc ]]; then
             mv  $rompath/$system/miyoogamelist.xml
         else
-            xmlstarlet  edit -d "//desc" -d "//rating" -d "//genre" -d "//players" -d "//releasedate" -d "//developer" -d "//publisher" -d "//hash" -d "//thumbnail" -d "//genreid" -d "//marquee" -d "//texture" -d "//video" --subnode "gameList/game[not(image)]" -t elem -n image -v "no-img.png" $rompath/$system/gamelist.xml > $rompath/$system/miyoogamelist.xml
+            xmlstarlet  edit -d "//desc" -d "//rating" -d "//genre" -d "//players" -d "//releasedate" -d "//developer" -d "//publisher" -d "//hash" -d "//thumbnail" -d "//genreid" -d "//marquee" -d "//texture" -d "//video" --subnode "gameList/game[not(image)]" -t elem -n image -v "no-img.png" $rompath/$system/gamelist.xml > $rompath/$system/miyoogamelist.$platform.xml
             rm $rompath/$system/gamelist.xml
         fi
     else
@@ -131,6 +154,21 @@ function clean_assets() {
                 continue
             fi
         fi
+
+        # check the exclude list
+        skip="false"
+        for i in "${exclude[@]}"
+        do
+            if [ "$i" == "$system" ] ; then
+                echo "Skipping $system"
+                skip="true"
+                continue
+            fi
+        done
+        if $skip ; then
+            continue
+        fi
+
         echo Cleaning $system
         for asset in ${pdir}Imgs/*
         do
@@ -169,7 +207,7 @@ function vacuum_skyscraper_cache() {
             for platform in $platforms
             do
                 echo vacuum $platform
-                Skyscraper -p $platform -i $rompath/$system --cache vacuum --flags unattendskip
+                Skyscraper ${inifile} -p $platform -i $rompath/$system --cache vacuum --flags unattendskip
             done
         fi
 
@@ -186,6 +224,7 @@ import="false"
 clean="false"
 dryrun="false"
 vacuum="false"
+uselastrun="true"
 system=""
 
 
@@ -208,9 +247,12 @@ while [[ "$1" = "-"* ]]; do
     elif [[ "$1" == "-c" || "$1" == "--clean" ]]; then
         clean="true"
         shift
-    elif [[ "$1" == "-d" || "$1" == "--dry-run" ]]; then
+    elif [[ "$1" == "-p" || "$1" == "--pretend" ]]; then
         dryrun="true"
         shift
+    elif [[ "$1" == "-d" || "$1" == "--device" ]]; then
+        skyscraperini=${skyscraperini%.ini}.$2.ini
+        shift 2
     elif [[ "$1" == "-v" || "$1" == "--vacuum" ]]; then
         vacuum="true"
         shift
@@ -227,10 +269,21 @@ fi
 
 #---------------
 
-inputline=$(grep -m 1 inputFolder ~/.skyscraper/config.ini)
+if [[ ! -f $skyscraperini ]]; then
+    echo "Could not find Skyscraper config file: $skyscraperini"
+    echo "Aborting."
+    exit 1
+fi
+
+inifile="-c $skyscraperini"
+
+inputline=$(grep -m 1 ^inputFolder "$skyscraperini")
 rompath=${inputline##*=}
 rompath="${rompath%\"}"
 rompath="${rompath#\"}"
+check_rompath
+
+lastrun=$rompath/.onionscraper.lastrun 
 
 if [[ "$clean" == "true" ]]; then
     clean_assets
@@ -253,6 +306,8 @@ if [[ "$systems" == "" ]]; then
         echo "No new game found."
         exit 0
     fi
+else
+    uselastrun="false"
 fi
 
 skip=false
@@ -272,20 +327,28 @@ do
         if [[ "$platforms" == "" ]]; then
             echo "Unsupported system"
         else
+            # Miyoo systems can be formed a more than one Skyscraper platform
             for platform in $platforms
             do
                 scrape_platform
             done
+            if [[ "$gamelist" == "true" ]]; then
+                echo "<?xml version=\"1.0\"?>" >$rompath/$system/miyoogamelist.xml
+                echo "<gameList>" >>$rompath/$system/miyoogamelist.xml
+                for gamelist in $rompath/$system/miyoogamelist.*.xml
+                do
+                    xmlstarlet select -t --copy-of '//gameList/game' $gamelist >>$rompath/$system/miyoogamelist.xml
+                done
+                echo "</gameList>" >>$rompath/$system/miyoogamelist.xml
+                rm $rompath/$system/miyoogamelist.*.xml
+            fi
         fi
     fi
     skip=false
 done
 
 # Update lastrun
-touch ${lastrun}
-
-# If launched from a Termux shortcut, closes automatically
-# wait for a key press
-#read -n 1 -r -s -p "Press any key to continue..." key
-#echo ""
+if [[ "$uselastrun" == "true" ]]; then
+    touch ${lastrun}
+fi
 

@@ -1,0 +1,12 @@
+# Scraping module for Skyscraper
+#module=screenscraper
+
+# Create a miyoogamelist.xml file for each system. Set to "false" to disable. 
+#gamelist="true"
+
+# System directory to exclude
+#exclude=("PORTS")
+
+# Skyscraper config file (no quotes)
+#skyscraperini=~/.skyscraper/config.ini
+
