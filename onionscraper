@@ -8,7 +8,7 @@
 
 module=screenscraper
 gamelist="true"
-exclude=("PORTS")
+exclude=(PORTS PICO)
 
 # Skyscraper config file (no quotes)
 skyscraperini=~/.skyscraper/config.ini
@@ -32,7 +32,7 @@ function usage() {
     echo "  -v --vacuum  vacuum the Skyscraper cache (danger?)."
     echo "  -i --import: import manually added assets."
     echo "  -s --skip:   skip existing output files."
-    echo "  -d --device  user the Skyscraper config for the given device."
+    echo "  -d --device  use the Skyscraper config for the given device."
     echo "  -h --help:   this help."
     echo "systems:"
     echo "  All parameters after the last option are treated as a list of systems"
@@ -101,6 +101,10 @@ function scrape_platform() {
         echo "Check your configuration, ROM paths and mount points."
         return
     fi
+	if [[ ! "$(ls -A $rompath/$system)" ]]; then
+        echo "No game in $system."
+        return
+    fi
 
     Skyscraper ${inifile} -p ${platform} -s ${module} \
         -i $rompath/$system \
@@ -115,7 +119,7 @@ function scrape_platform() {
           $rompath/$system/Imgs/textures \
           $rompath/$system/Imgs/wheels
 
-    if [[ "$gamelist" == "true" ]]; then
+    if [[ "$gamelist" == "true" && -f $rompath/$system/gamelist.xml ]]; then
         # if using a gamelist, clean it up and rename it
         sed -i 's/Imgs\/screenshots/Imgs/g' $rompath/$system/gamelist.xml
         if ! xmlstarlet_loc="$(type -p "xmlstarlet")" || [[ -z $xmlstarlet_loc ]]; then
@@ -233,7 +237,6 @@ while [[ "$1" = "-"* ]]; do
         usage
     elif [[ "$1" == "--all" || "$1" == "-a" ]]; then
         echo "Scanning all platforms."
-        rm -f $lastrun
         allplatforms="true"
         shift
     elif [[ "$1" == "-s" || "$1" == "--skip" ]]; then
@@ -265,6 +268,9 @@ done
 # remaining parameters are systems to scrape
 if [[ "$allplatforms" != "true" ]]; then
     systems="$@"
+    if [[ "$systems" != "" ]]; then
+        uselastrun="false"
+    fi
 fi
 
 #---------------
@@ -285,16 +291,21 @@ check_rompath
 
 lastrun=$rompath/.onionscraper.lastrun 
 
+if [[ "$allplatforms" == "true" ]]; then
+    rm -f $lastrun
+fi
+
 if [[ "$clean" == "true" ]]; then
     clean_assets
 elif [[ "$vacuum" == "true" ]]; then
     vacuum_skyscraper_cache
 fi
 
-if [ ! -f ${lastrun} ]; then
-    echo "First run: this could take a long time..."
-    # create a lastrun file far in the past to scan everything
-    touch -d "1/1/1970" ${lastrun}
+if [[ ! -f ${lastrun} && "$systems" == "" ]] || [[ "$allplatforms" == "true" ]]; then
+    echo "Checking all systems: this could take a long time..."
+    cd ${rompath}
+    systems=$(find -mindepth 1 -maxdepth 1 -type d -printf "%P ")
+    cd -
 fi
 
 if [[ "$systems" == "" ]]; then
@@ -304,10 +315,9 @@ if [[ "$systems" == "" ]]; then
 
     if [[ "$systems" == "" ]];then
         echo "No new game found."
+        touch ${lastrun}
         exit 0
     fi
-else
-    uselastrun="false"
 fi
 
 skip=false
@@ -327,12 +337,16 @@ do
         if [[ "$platforms" == "" ]]; then
             echo "Unsupported system"
         else
-            # Miyoo systems can be formed a more than one Skyscraper platform
+            # Miyoo systems can be formed of more than one Skyscraper platform
             for platform in $platforms
             do
                 scrape_platform
             done
             if [[ "$gamelist" == "true" ]]; then
+                if ! ls $rompath/$system/miyoogamelist.*.xml >/dev/null 2>&1; then
+                    # No gamelist available, maybe there were no games in the directory
+                    continue
+                fi
                 echo "<?xml version=\"1.0\"?>" >$rompath/$system/miyoogamelist.xml
                 echo "<gameList>" >>$rompath/$system/miyoogamelist.xml
                 for gamelist in $rompath/$system/miyoogamelist.*.xml
@@ -349,6 +363,7 @@ done
 
 # Update lastrun
 if [[ "$uselastrun" == "true" ]]; then
+    echo "Updating last run time."
     touch ${lastrun}
 fi
 

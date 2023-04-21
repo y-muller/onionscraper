@@ -5,7 +5,7 @@
 #gamelist="true"
 
 # System directory to exclude
-#exclude=("PORTS")
+#exclude=(PORTS PICO)
 
 # Skyscraper config file (no quotes)
 #skyscraperini=~/.skyscraper/config.ini

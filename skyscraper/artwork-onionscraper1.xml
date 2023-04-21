@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Simple OnionOS artwork with screenshot and wheel (250x360)-->
+<artwork>
+  <output type="screenshot" width="250" height="360">
+    <layer resource="screenshot" height="360" align="center" valign="middle">
+    </layer>
+    <layer resource="onionscraper-gradient.png" mode="darken" opacity="70" x="0" y="0" width="250" height="100"/>
+    <layer resource="wheel" width="230" y="10" align="center">
+      <shadow distance="5" softness="5" opacity="70"/>
+    </layer>
+  </output>
+</artwork>
