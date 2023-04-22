@@ -122,8 +122,8 @@ function scrape_platform() {
     if [[ "$gamelist" == "true" && -f $rompath/$system/gamelist.xml ]]; then
         # if using a gamelist, clean it up and rename it
         sed -i 's/Imgs\/screenshots/Imgs/g' $rompath/$system/gamelist.xml
-        if ! xmlstarlet_loc="$(type -p "xmlstarlet")" || [[ -z $xmlstarlet_loc ]]; then
-            mv  $rompath/$system/miyoogamelist.xml
+        if [[ ! "$hasxmlstarlet" == "true" ]]; then
+            mv $rompath/$system/gamelist.xml $rompath/$system/miyoogamelist.$platform.xml
         else
             xmlstarlet  edit -d "//desc" -d "//rating" -d "//genre" -d "//players" -d "//releasedate" -d "//developer" -d "//publisher" -d "//hash" -d "//thumbnail" -d "//genreid" -d "//marquee" -d "//texture" -d "//video" --subnode "gameList/game[not(image)]" -t elem -n image -v "no-img.png" $rompath/$system/gamelist.xml > $rompath/$system/miyoogamelist.$platform.xml
             rm $rompath/$system/gamelist.xml
@@ -229,6 +229,7 @@ clean="false"
 dryrun="false"
 vacuum="false"
 uselastrun="true"
+hasxmlstarlet="false"
 system=""
 
 
@@ -301,6 +302,10 @@ elif [[ "$vacuum" == "true" ]]; then
     vacuum_skyscraper_cache
 fi
 
+if xmlstarlet_loc="$(type -p "xmlstarlet")" || [[ -n $xmlstarlet_loc ]]; then
+    hasxmlstarlet="true"
+fi
+
 if [[ ! -f ${lastrun} && "$systems" == "" ]] || [[ "$allplatforms" == "true" ]]; then
     echo "Checking all systems: this could take a long time..."
     cd ${rompath}
@@ -351,7 +356,13 @@ do
                 echo "<gameList>" >>$rompath/$system/miyoogamelist.xml
                 for gamelist in $rompath/$system/miyoogamelist.*.xml
                 do
-                    xmlstarlet select -t --copy-of '//gameList/game' $gamelist >>$rompath/$system/miyoogamelist.xml
+                    if [[ "$hasxmlstarlet" != "true" ]]; then
+                        # No xmlstarlet, print the entire xml file minus the first 2 and last lines.
+                        # Does this work on Mac OS?
+                        tail -n +3 $gamelist | head -n -1 >>$rompath/$system/miyoogamelist.xml
+                    else
+                        xmlstarlet select -t --copy-of '//gameList/game' $gamelist >>$rompath/$system/miyoogamelist.xml
+                    fi
                 done
                 echo "</gameList>" >>$rompath/$system/miyoogamelist.xml
                 rm $rompath/$system/miyoogamelist.*.xml
