@@ -4,9 +4,13 @@ A script to scrape artwork for OnionOS on the Miyoo Mini and Mini+. The actual s
 ### Requirements
 - bash (Linux, MacOS, Cygwin...)
 - Skyscraper: [Lars Muldjord](https://github.com/muldjord/skyscraper)'s original or [Detain](https://github.com/detain/skyscraper)'s more recent fork.
-- xmlstarlet (optional): used to remove unnecessary data in the miyoogamelist.xml.
+- [xmlstarlet](https://xmlstar.sourceforge.net/download.php) (optional): used to remove unnecessary data in the miyoogamelist.xml.
 
 ### Installation
+Install *Skyscraper* from one of the links above.
+
+Install *xmlstarlet* if you plan on using the `miyoogamelist.xml` files. The game list files are still supported by *onionscraper* without *xmlstarlet* but the generated files will not be cleaned up and will contain a lot of information not used by the Miyoo Mini and Mini+.
+
 Clone the repository or download the Zip file. Copy the content of `skyscraper` to `~/.skyscraper`. 
 
 ### Configuration
