@@ -4,13 +4,9 @@ A script to scrape artwork for OnionOS on the Miyoo Mini and Mini+. The actual s
 ### Requirements
 - bash (Linux, MacOS, Cygwin...)
 - Skyscraper: [Lars Muldjord](https://github.com/muldjord/skyscraper)'s original or [Detain](https://github.com/detain/skyscraper)'s more recent fork.
-- [xmlstarlet](https://xmlstar.sourceforge.net/download.php) (optional): used to remove unnecessary data in the miyoogamelist.xml.
+- xmlstarlet (optional): used to remove unnecessary data in the miyoogamelist.xml.
 
 ### Installation
-Install *Skyscraper* from one of the links above.
-
-Install *xmlstarlet* if you plan on using the `miyoogamelist.xml` files. The game list files are still supported by *onionscraper* without *xmlstarlet* but the generated files will not be cleaned up and will contain a lot of information not used by the Miyoo Mini and Mini+.
-
 Clone the repository or download the Zip file. Copy the content of `skyscraper` to `~/.skyscraper`. 
 
 ### Configuration
@@ -76,7 +72,7 @@ If called with `-a` or `--all`, all the systems will be scanned instead of just 
 ### Artwork styles
 The XML file used to generate the game artwork is defined in the Skyscraper configuration file. Two styles are included. You can use those as they are or modify them to fit your requirements.
 
-![artwork-1](.img/artwork-1.png) ![artwork-2](.img/artwork-2.png)
+![artwork-1](.img/artwork-1.png) ![artwork-2](.img/artwork-2.png) ![artwork-3](.img/artwork-3.png) ![artwork-4](.img/artwork-4.png) ![artwork-5](.img/artwork-5.png)
 
 **artwork-onionscraper1.xml**: The screenshot takes the entire height so the sides are cropped. The logo is added on top. 
 - The width of the logo is fixed so tall logos take a lot of the available space.
@@ -84,6 +80,12 @@ The XML file used to generate the game artwork is defined in the Skyscraper conf
 **artwork-onionscraper2.xml**: The screenshot is shown in full in the middle. The logo is at the top and the front cover at the bottom right.
 - This time the width of the logo is not fixed but the total area is. This doesn't work very well with logos that are not tall enough.
 - An opaque layer is added as a background in the same colour as the default theme. For other themes, a different background image is needed. Or you can make it transparent by removing the background.
+
+**artwork-onionscraper3.xml**: Same as style 1 but with the left edge becoming transparent. This can make the text of the game titles blend into the artwork.
+
+**artwork-onionscraper4.xml**: Same as style 2 with the background becoming transparent on the left edge.
+
+**artwork-onionscraper5.xml**: Same as style 2 with the left edge (background and screenshot) becoming transparent.
 
 ### Using multiple devices
 If you use Skyscraper outside of onionscraper, you already have a config file and you don't want to overwrite it. Give your Skyscraper config of onionscraper a different name and set the correct file name in the onionscraper configuration.
