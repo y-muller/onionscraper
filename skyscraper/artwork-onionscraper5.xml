@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OnionOS artwork with screenshot, wheel and cover (250x360)-->
+<artwork>
+  <output type="screenshot" width="250" height="360">
+    <layer resource="onionscraper-bg-silky.png" opacity="100" width="250" height="360">
+      <mask file="onionscraper-lbordermask.png"/>
+    </layer>
+    <layer resource="screenshot" width="250" align="center" valign="middle">
+      <mask file="onionscraper-lbordermask.png"/>
+    </layer>
+    <layer resource="wheel" mpixels="0.012" width="200" x="10" y="5" align="left">
+      <shadow distance="5" softness="5" opacity="70"/>
+    </layer>
+    <layer resource="cover" height="110" x="-5" y="-5" align="right" valign="bottom">
+      <gamebox side="wheel" rotate="90"/>
+      <shadow distance="5" softness="5" opacity="70"/>
+    </layer>
+</output>
+</artwork>
