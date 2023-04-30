@@ -33,6 +33,8 @@ function usage() {
     echo "  -i --import: import manually added assets."
     echo "  -s --skip:   skip existing output files."
     echo "  -d --device  use the Skyscraper config for the given device."
+    echo "  -r --region <region>  override the default region list."
+    echo "  -g --game <gamepath> process only the given game."
     echo "  -h --help:   this help."
     echo "systems:"
     echo "  All parameters after the last option are treated as a list of systems"
@@ -108,7 +110,8 @@ function scrape_platform() {
 
     Skyscraper ${inifile} -p ${platform} -s ${module} \
         -i $rompath/$system \
-        --flags $skip_in
+        --flags $skip_in \
+        $region "$game"
     Skyscraper ${inifile} -p ${platform} \
         -i $rompath/$system -o $rompath/$system/Imgs \
         --flags $skip_out
@@ -231,7 +234,8 @@ vacuum="false"
 uselastrun="true"
 hasxmlstarlet="false"
 system=""
-
+region=""
+game=""
 
 while [[ "$1" = "-"* ]]; do
     if [[ "$1" = "--help" || "$1" = "-h"  ]]; then
@@ -240,6 +244,9 @@ while [[ "$1" = "-"* ]]; do
         echo "Scanning all platforms."
         allplatforms="true"
         shift
+    elif [[ "$1" == "-r" || "$1" == "--region" ]]; then
+        region="--region $2"
+        shift 2
     elif [[ "$1" == "-s" || "$1" == "--skip" ]]; then
         skip_out="unattendskip"
         shift
@@ -260,6 +267,9 @@ while [[ "$1" = "-"* ]]; do
     elif [[ "$1" == "-v" || "$1" == "--vacuum" ]]; then
         vacuum="true"
         shift
+    elif [[ "$1" == "-g" || "$1" == "--game" ]]; then
+        game=$2
+        shift 2
     else
         echo "Unsupported option $1."
         shift

@@ -52,6 +52,8 @@ options:
   -i --import: import manually added assets.
   -s --skip:   skip existing output files.
   -d --device  use the Skyscraper config for the given device.
+  -r --region <region>  override the default region list.
+  -g --game <gamepath> process only the given game.
   -h --help:   this help.
 systems:
   All parameters after the last option are treated as a list of systems
@@ -117,7 +119,16 @@ Adjust the inputFolder in the Skyscraper config to match.
 
 Combined with the `--device` option, you can have a config to use SSH and a second when mounting the SD card.
 
-### Importing local images
+### Improving on the automated scraping
+
+##### overriding the region
+Sometimes *screenscraper* gets the title screenshot instead of the in-game screenshot. This happens because the screenshots available do not match the game's region. In this case, it is possible to scrape the game with a different region. For example:
+
+```
+onionscraper --game "Game name (J).gba" --region wor GBA
+```
+
+##### Importing local images
 The artwork is generated from the *screenshot* and *wheel* assets.
 
 See [Skyscraper's documentation](https://github.com/muldjord/skyscraper/blob/master/docs/IMPORT.md) on import for the details. By default, Skyscraper looks for images to import in `~/.skyscraper/import`.
