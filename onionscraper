@@ -111,7 +111,7 @@ function scrape_platform() {
     Skyscraper ${inifile} -p ${platform} -s ${module} \
         -i $rompath/$system \
         --flags $skip_in \
-        $region "$game"
+        $region #$game
     Skyscraper ${inifile} -p ${platform} \
         -i $rompath/$system -o $rompath/$system/Imgs \
         --flags $skip_out
@@ -268,7 +268,7 @@ while [[ "$1" = "-"* ]]; do
         vacuum="true"
         shift
     elif [[ "$1" == "-g" || "$1" == "--game" ]]; then
-        game=$2
+        game=\"$2\"
         shift 2
     else
         echo "Unsupported option $1."
