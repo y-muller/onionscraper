@@ -375,6 +375,9 @@ do
                     fi
                 done
                 echo "</gameList>" >>$rompath/$system/miyoogamelist.xml
+                # Screenscraper game names often have an extra space before colons
+                # remove them
+                sed -i 's/ : /: /g' $rompath/$system/miyoogamelist.xml
                 rm $rompath/$system/miyoogamelist.*.xml
             fi
         fi
