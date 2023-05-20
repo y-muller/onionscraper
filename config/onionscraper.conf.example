@@ -10,3 +10,6 @@
 # Skyscraper config file (no quotes)
 #skyscraperini=~/.skyscraper/config.ini
 
+# Replace colons in game titles in game list for better sorting
+#replacecolons="true"
+

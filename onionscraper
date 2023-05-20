@@ -13,6 +13,8 @@ exclude=(PORTS PICO)
 # Skyscraper config file (no quotes)
 skyscraperini=~/.skyscraper/config.ini
 
+replacecolons="true"
+
 ##################
 if [[ -f ~/.config/onionscraper.conf ]]; then
     source ~/.config/onionscraper.conf
@@ -375,9 +377,15 @@ do
                     fi
                 done
                 echo "</gameList>" >>$rompath/$system/miyoogamelist.xml
-                # Screenscraper game names often have an extra space before colons
-                # remove them
-                sed -i 's/ : /: /g' $rompath/$system/miyoogamelist.xml
+                if [[ "$replacecolons" == "true" ]]; then
+                    # Replace colons (unless no space either side)
+                    # to help with sort order of sequels - but less space efficient
+                    sed -i 's/\( *\):\( \+\)/ - /g' $rompath/$system/miyoogamelist.xml
+                else
+                    # Screenscraper game names often have an extra space before colons
+                    # remove them
+                    sed -i 's/ : /: /g' $rompath/$system/miyoogamelist.xml
+                fi
                 rm $rompath/$system/miyoogamelist.*.xml
             fi
         fi
